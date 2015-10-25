@@ -1,0 +1,114 @@
+#Project Assignment for Practical Machine Learning
+A course in the Johns Hopkins Coursera Data Science specialization
+Author: "Sachin"
+Date: "October 25, 2015"
+
+# Problem Summary.
+This analysis/ project assignment for the Practical Machine Learning course of the John Hopkins Data Science Specialization at Coursera. The project uses data from the Weight Lifting Exercises (WLE) Dataset (see http://groupware.les.inf.puc-rio.br/har)
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.According to the WLE website, six participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions, identified as classes A, B, C, D and E. Class A corresponds to a correct execution of the exercise, and the remaining five classes identify common mistakes in this weight lifting exercise. Several sensors were used to collect data about the quality of the exercise execution. 
+
+#Objective
+To obtain a prediction algorithm that takes such a set of sensor readings and correctly predicts the corresponding class (A to E).
+
+#Executive SUmmary
+ 
+The analysis using a random forest prediction algorithm to accomplish the stated objective.Some data cleaing exercise was also done before generating the model. 
+
+The results of the analysis confirm that the model provided by this algorithm achieves a high prediction accuracy (as indicated by several prediction quality indicators).
+
+The predction model constructed as per the analysis  was used or applied on the Prediction part of this Assignment(the provided testing data). 
+
+# Analysis & Computation
+
+##Setting up Environment
+
+```{r}
+library(caret)
+library(corrplot)
+```
+Downloading the source data file from the web url and storing them in the root working direcory
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "./pml-training.csv",method="curl")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile="./pml-testing.csv",method="curl")
+```
+
+Reading the csv files for both training and testing data and checking their dimension
+```{r}
+trainingData=read.csv("./pml-training.csv" ,header = TRUE, sep = ",",na.strings = c("NA", "#DIV/0!"))
+testingData= read.csv("./pml-testing.csv" ,header = TRUE, sep = ",",na.strings = c("NA", "#DIV/0!"))
+
+dim(trainingData)
+dim(testingData)
+```
+
+##Preprocessing
+
+Since as per the instruction , the study is only to use data  from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+The preprocessing is not done to standardise the columns values or to find out the principal compoenents. However the relavent columns are picked up required for the sudy.
+
+Further more, any columns with missing or NA values for a larger set of rows is also ommitted from the training data set
+
+```{r}
+sensorColumns = grep(pattern = "_belt|_arm|_dumbbell|_forearm", names(trainingData))
+
+trainingData_clean1 = trainingData[, c(sensorColumns,160)]
+missingData = is.na(trainingData_clean1)
+omitColumns = which(colSums(missingData) > 19000)
+trainingData_final = trainingData_clean1[, -omitColumns]
+dim(trainingData_final)
+
+testingData_clean1 = testingData[, c(sensorColumns,160)]
+testingData_final = testingData_clean1[, -omitColumns]
+dim(testingData_final)
+
+```
+
+
+Split the training Data into a further training & testing data which are subset of the actual training data.
+```{r}
+tr_set<-createDataPartition(y=trainingData_final$classe,p=0.75,list=FALSE)
+tr <- trainingData_final[tr_set,]
+dim(tr)
+ts <- trainingData_final[-tr_set,]
+dim(ts)
+```
+
+
+##Generate Model
+
+So with preposing and splitting the training data, we are now ready to generate the model using the traning data set. Here we create the random forest model with specifying the number of trees to to be 100.
+
+
+The model is then applied on the testing data (which was created from the subest of the actual trainig data). The confusion matrix shows promising results.
+
+```{r}
+mod_fit<-train(tr$classe~. ,data =tr,method="rf",ntree=50)
+mod_fit$finalModel
+
+predictionTesting = predict(mod_fit, newdata = ts)
+confusionMatrix(predictionTesting, ts$classe)
+```  
+
+#Predict on Test Data
+Applyingthe function on  the model tetsing data.Writing the output to a file using the function
+
+```{r}
+predictionTesting_Final = predict(mod_fit, newdata = testingData_final)
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+      filename = paste0("problem_id_",i,".txt")
+      write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+} 
+pml_write_files(predictionTesting_Final) 
+```
+
+
+
+
+#References
+
+http://groupware.les.inf.puc-rio.br/har
+https://class.coursera.org/predmachlearn-033/human_grading/view/courses/975203/assessments/4/submissions
